@@ -12,6 +12,30 @@
 
 __device__ inline bool in_bounds ( int x ) { return ( x >= 0 && x < im_size*im_size ); }
 
+__global__ void sobel_kernel ( unsigned char *in, unsigned char *out )
+{
+	int x = blockIdx.x * blockDim.x + threadIdx.x;
+	int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+	double kernel_x[3][3] = { { -1, 0, 1 }, { -2, 0, 2 }, { -1, 0, 1 } };
+	double kernel_y[3][3] = { { -1, -2, -1 }, { 0, 0, 0 }, { 1, 2, 1 } };
+
+	double magnitude_x = 0.0;
+	double magnitude_y = 0.0;
+	for ( int i = 0; i < 3; i++ )
+	{
+		for ( int j = 0; j < 3; j++ )
+		{
+			int x_local = i + x;
+			int y_local = j + y;
+			int index = x_local + y_local * im_size;
+			magnitude_x += in[ index ] * kernel_x[ i ][ j ];
+			magnitude_y += in[ index ] * kernel_y[ i ][ j ];
+		}
+	}
+	out[ x + y*im_size ] = sqrt( magnitude_x*magnitude_x + magnitude_y*magnitude_y );
+}
+
 __global__ void median_kernel(unsigned char *in, unsigned char *out, int filtersize)
 {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -119,7 +143,7 @@ cudaError_t median_filter_gpu(std::string inputfilename, std::string outputfilen
 	dim3 numBlocks ( im_size / threadsPerBlock.x, im_size / threadsPerBlock.y );
 
     /* Launch a kernel on the GPU with 32 threads for each block */
-    median_kernel<<<numBlocks, threadsPerBlock>>>(dev_input, dev_output, size);
+    sobel_kernel<<<numBlocks, threadsPerBlock>>>(dev_input, dev_output);
 
 	/* check what went wrong */
     cudaStatus = cudaGetLastError();
