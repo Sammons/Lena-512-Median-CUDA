@@ -2,19 +2,54 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #include "inc/helper_image.h"
+#include "thrust\device_vector.h"
+#include "thrust\sort.h"
 #include <stdio.h>
 #include <iostream>
 #include <string>
 
 #define im_size 512
 
+__device__ inline bool in_bounds ( int x ) { return ( x >= 0 && x < im_size*im_size ); }
+
 __global__ void median_kernel(unsigned char *in, unsigned char *out, int filtersize)
 {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 	int index = im_size*y + x;
-	out[ index ] = 255;
-	//printf ( "%d\n", index );
+
+	int top_left = index - im_size - filtersize / 2;
+	unsigned char * neighbors = (unsigned char*)malloc( sizeof(unsigned char)*filtersize*filtersize);
+	/* hack to split the empty neighbors evenly */
+	for ( int i = 0; i < filtersize*filtersize; ++i )
+		neighbors[ i ] = i % 2 == 0 ? 255 : 0;
+
+	/* set neighbors */
+	for ( int i = 0; i < filtersize; i++ )
+	{
+		const int row_start = top_left + im_size*i;
+		for ( int j = 0; j < filtersize; j++ )
+		{
+			if ( in_bounds ( row_start + j ) )
+				neighbors[ ( i + 1 )*( j + 1 ) - 1 ] = in[ row_start + j ];
+		}
+	}
+
+	/* bubble sort */
+	bool swap_happened = false;
+	do
+	{
+		for ( int i = 1; i < filtersize*filtersize; ++i )
+			if (neighbors[i] > neighbors[i-1]){
+				int tmp = neighbors[ i ];
+				neighbors[ i ] = neighbors[ i + 1 ];
+				neighbors[ i + 1 ] = tmp;
+			}
+	} while ( swap_happened );
+
+	/* set */
+	out[ index ] = neighbors[ filtersize*filtersize / 2 ];
+	free ( neighbors );
 }
 
 cudaError_t median_filter_gpu ( std::string, std::string, unsigned int );
