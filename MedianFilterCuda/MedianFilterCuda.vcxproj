@@ -187,6 +187,8 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     <ClInclude Include="..\..\..\..\..\..\..\ProgramData\NVIDIA Corporation\CUDA Samples\v7.0\common\inc\rendercheck_d3d9.h" />
     <ClInclude Include="..\..\..\..\..\..\..\ProgramData\NVIDIA Corporation\CUDA Samples\v7.0\common\inc\rendercheck_gl.h" />
     <ClInclude Include="..\..\..\..\..\..\..\ProgramData\NVIDIA Corporation\CUDA Samples\v7.0\common\inc\timer.h" />
+    <ClInclude Include="common.cuh" />
+    <ClInclude Include="median.cuh" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
