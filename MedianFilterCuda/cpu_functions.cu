@@ -32,7 +32,7 @@ float calculate_accuracy ( unsigned char*& gpu_computed, unsigned char*& origina
 		std::sort ( neighbors.begin (), neighbors.end () );
 		const int expected = neighbors[ ( filtersize*filtersize ) / 2 ];
 		const int provided = gpu_computed[ i ];
-		if ( abs(expected - provided) < 0.025 * 255 )
+		if ( abs(expected - provided) == 0 )
 			++correct;
 	}
 

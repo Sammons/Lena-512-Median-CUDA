@@ -49,14 +49,16 @@ void median_filter ( std::string inputfilename, std::string outputfilename, std:
 	cudaMemcpy ( dev_input, host_lena, IMAGE_SIZE * IMAGE_SIZE * sizeof ( unsigned char ), cudaMemcpyHostToDevice );
 
 	/* define kernel parameters */
-	dim3 threadsPerBlock ( 16 );
+	dim3 threadsPerBlock ( 32 );
 	dim3 numBlocks ( IMAGE_SIZE / threadsPerBlock.x, IMAGE_SIZE / threadsPerBlock.y );
 
 	/* Launch a kernel on the GPU with 32 threads for each block */
 	get_median_kernel ( size ) <<<numBlocks, threadsPerBlock >>>( dev_input, dev_output );
 
 	/* finish up */
-	cudaDeviceSynchronize ();
+	cudaError_t error = cudaDeviceSynchronize ();
+
+	error = cudaGetLastError ();
 
 	/* copy the data off */
 	unsigned char out[ IMAGE_SIZE*IMAGE_SIZE ] = { 0 };

@@ -9,39 +9,49 @@ template<int filtersize>
 __global__ void median_kernel ( unsigned char *in, unsigned char *out )
 {
 	/* for convenience */
-	int x = blockIdx.x * blockDim.x + threadIdx.x;
-	int y = blockIdx.y * blockDim.y + threadIdx.y;
-	int index = IMAGE_SIZE*y + x;
+	const int x = blockIdx.x * blockDim.x + threadIdx.x;
+	const int y = blockIdx.y * blockDim.y + threadIdx.y;
+	const int index = IMAGE_SIZE*y + x;
 
-	int top_left = index - IMAGE_SIZE*(filtersize/2) - filtersize / 2;
+	const int top_left = index - IMAGE_SIZE*(filtersize/2) - filtersize / 2;
 	unsigned char * neighbors = ( unsigned char* )malloc ( sizeof ( unsigned char )*filtersize*filtersize );
-	/* hack to split the empty neighbors evenly */
-	for ( int i = 0; i < filtersize*filtersize; ++i )
+	/* split the empty neighbors evenly */
+#pragma unroll
+	for (register int i = 0; i < filtersize*filtersize; ++i )
 		neighbors[ i ] = i % 2 == 0 ? 255 : 0;
 
 	/* set neighbors */
-	for ( int i = 0; i < filtersize; i++ )
+	for ( register int i = 0; i < filtersize; i++ )
 	{
 		const int row_start = top_left + IMAGE_SIZE*i;
-		for ( int j = 0; j < filtersize; j++ )
+#pragma unroll
+		for (register int j = 0; j < filtersize; j++ )
 		{
-			if ( in_bounds ( row_start + j ) )
-				neighbors[ ( i + 1 )*( j + 1 ) - 1 ] = in[ row_start + j ];
+			const int cur = row_start + j;
+			const int negh = ( i + 1 )*( j + 1 ) - 1;
+			neighbors[ negh ] = in_bounds ( cur ) ? in[ cur ] : neighbors[ negh ];
 		}
 	}
+	
 
 	/* bubble sort */
-	bool swap_happened = false;
-	do
+	register bool swap_happened = true;
+	while ( swap_happened )
 	{
-		for ( int i = 1; i < filtersize*filtersize; ++i )
-			if ( neighbors[ i ] > neighbors[ i - 1 ] )
+		swap_happened = false;
+#pragma unroll
+		for ( int k = 1; k < filtersize*filtersize; ++k )
+		{
+			const int i = k-1;
+			const int tmp = neighbors[ k ];
+			if ( tmp > neighbors[ i ] )
 			{
-				int tmp = neighbors[ i ];
-				neighbors[ i ] = neighbors[ i + 1 ];
-				neighbors[ i + 1 ] = tmp;
+				swap_happened = true;
+				neighbors[ k ] = neighbors[ i ];
+				neighbors[ i ] = tmp;
 			}
-	} while ( swap_happened );
+		}
+	}
 
 	/* set */
 	out[ index ] = neighbors[ filtersize*filtersize / 2 ];
