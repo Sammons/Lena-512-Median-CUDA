@@ -107,6 +107,13 @@
     <ClInclude Include="median.cuh">
       <Filter>device_image_filters</Filter>
     </ClInclude>
+    <ClInclude Include="sobel.cuh">
+      <Filter>device_image_filters</Filter>
+    </ClInclude>
+    <ClInclude Include="median.h">
+      <Filter>host_image_filters</Filter>
+    </ClInclude>
+    <ClInclude Include="common.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Inc">
