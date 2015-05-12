@@ -1,70 +1,79 @@
 #include "common.cuh"
 #include "median.cuh"
-#include "median.h"
-
+#include "cpu_functions.cu"
 /* prototype for call below that wraps launching the median filter kernel */
-cudaError_t median_filter_gpu ( std::string in, std::string out, std::string size);
+inline void median_filter ( const std::string in, const std::string out, const std::string size);
 
-int main()
+int main (int argc, char* argv[])
 {
-
-	std::string in_file = "lena.pgm", out_file = "out.pgm", size = "3";
+	if ( argc != 4 )
+	{
+		std::cout << "Incorrect usage, execute with parameters: <filtersize [3,5,7,11,15]> <input 512x512 .pgm image path> <output path>" << std::endl;
+		return 1;
+	}
+	std::string size = std::string ( argv[ 1 ] );
+	std::string input_file_path = std::string ( argv[ 2 ] );
+	std::string outpu_file_path = std::string ( argv[ 3 ] );
+	
 	/* perform median filter with GPU */
-    cudaError_t cudaStatus = median_filter_gpu(in_file, out_file, size);
-    
-	/* clear the device */
-	cudaStatus = cudaDeviceReset();
+	median_filter ( input_file_path, outpu_file_path, size );
 
     return 0;
 }
 
 /* wrap the kernel call here */
-cudaError_t median_filter_gpu(std::string inputfilename, std::string outputfilename, std::string size)
+/* note that the size is passed as a string, the median filter kernel is a template function
+and there is a string map that correlates an input to the correct template function to execute */
+void median_filter ( std::string inputfilename, std::string outputfilename, std::string size )
 {
 	unsigned char * host_lena = NULL;
-    unsigned char * dev_input = 0;
-    unsigned char * dev_output = 0;
-    cudaError_t cudaStatus;
-	
-    cudaStatus = cudaSetDevice(0);
+	unsigned char * dev_input = 0;
+	unsigned char * dev_output = 0;
+
+	cudaSetDevice ( 0 );
 
 	/* load up lena, allocates memory if not given */
 	unsigned int width;
 	unsigned int height;
-	sdkLoadPGM<unsigned char> ( inputfilename.c_str(), &host_lena, &width, &height );
-	
+	sdkLoadPGM<unsigned char> ( inputfilename.c_str (), &host_lena, &width, &height );
+
+	start ( "gpu timer" );
+
 	/* create space on card for lena IN */
-	cudaStatus = cudaMalloc ( ( void** )&dev_input, IMAGE_SIZE * IMAGE_SIZE * sizeof ( unsigned char ) );
+	cudaMalloc ( ( void** )&dev_input, IMAGE_SIZE * IMAGE_SIZE * sizeof ( unsigned char ) );
 
 	/* create space on card for lena OUT */
-	cudaStatus = cudaMalloc ( ( void** )&dev_output, IMAGE_SIZE * IMAGE_SIZE * sizeof ( unsigned char ) );
+	cudaMalloc ( ( void** )&dev_output, IMAGE_SIZE * IMAGE_SIZE * sizeof ( unsigned char ) );
 
 	/* copy host lena into card space */
-	cudaStatus = cudaMemcpy ( dev_input, host_lena, IMAGE_SIZE * IMAGE_SIZE * sizeof ( unsigned char ), cudaMemcpyHostToDevice );
+	cudaMemcpy ( dev_input, host_lena, IMAGE_SIZE * IMAGE_SIZE * sizeof ( unsigned char ), cudaMemcpyHostToDevice );
 
 	/* define kernel parameters */
 	dim3 threadsPerBlock ( 16 );
 	dim3 numBlocks ( IMAGE_SIZE / threadsPerBlock.x, IMAGE_SIZE / threadsPerBlock.y );
 
-    /* Launch a kernel on the GPU with 32 threads for each block */
-    get_median_kernel(size) <<<numBlocks, threadsPerBlock>>>(dev_input, dev_output);
+	/* Launch a kernel on the GPU with 32 threads for each block */
+	get_median_kernel ( size ) <<<numBlocks, threadsPerBlock >>>( dev_input, dev_output );
 
-	/* check what went wrong */
-    cudaStatus = cudaGetLastError();
-    
 	/* finish up */
-    cudaStatus = cudaDeviceSynchronize();
+	cudaDeviceSynchronize ();
 
 	/* copy the data off */
-	memset ( host_lena, 0, IMAGE_SIZE*IMAGE_SIZE );
-	//cudaStatus = cudaMemcpy ( host_lena, dev_output, IMAGE_SIZE*IMAGE_SIZE * sizeof ( unsigned char ), cudaMemcpyDeviceToHost );
+	unsigned char out[ IMAGE_SIZE*IMAGE_SIZE ] = { 0 };
+	cudaMemcpy ( out, dev_output, IMAGE_SIZE*IMAGE_SIZE * sizeof ( unsigned char ), cudaMemcpyDeviceToHost );
 
-	sdkSavePGM ( outputfilename.c_str (), host_lena, width, height );
+	auto time = get_time ( "gpu timer" );
+	std::cout << "Time: " << time << std::endl;
+
+	float accuracy = calculate_accuracy ( &out[0], host_lena, size );
+	std::cout << "Accuracy: " << accuracy*100 << "% of pixels were correct" << std::endl;
+	/* save output file */
+	sdkSavePGM ( outputfilename.c_str (), out, width, height );
 
 	/* cleanup */
 	free ( host_lena ); host_lena = NULL;
-    cudaFree(dev_input);
-    cudaFree(dev_output);
-    
-    return cudaStatus;
+	cudaFree ( dev_input );
+	cudaFree ( dev_output );
+
+	cudaDeviceReset ();
 }

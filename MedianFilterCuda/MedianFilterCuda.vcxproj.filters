@@ -110,23 +110,14 @@
     <ClInclude Include="sobel.cuh">
       <Filter>device_image_filters</Filter>
     </ClInclude>
-    <ClInclude Include="median.h">
-      <Filter>host_image_filters</Filter>
-    </ClInclude>
-    <ClInclude Include="common.h" />
+    <ClInclude Include="cpu_functions.cu" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Inc">
       <UniqueIdentifier>{0d3e72e9-5824-4a9d-8f86-ad883bfff55c}</UniqueIdentifier>
     </Filter>
-    <Filter Include="local_lib">
-      <UniqueIdentifier>{3834b51a-5525-474e-9f61-c51bec01bebc}</UniqueIdentifier>
-    </Filter>
     <Filter Include="device_image_filters">
       <UniqueIdentifier>{19b20881-e700-4db6-b66d-69c16feb2279}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="host_image_filters">
-      <UniqueIdentifier>{bc3dba88-59e9-42b3-a8a9-d6c17d86b232}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>
