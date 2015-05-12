@@ -5,46 +5,37 @@
 #include <stdio.h>
 
 /* templatized single channel median kernel, please use with a good odd number */
-template<int FILTER_WIDTH>
+template<int filtersize>
 __global__ void median_kernel ( unsigned char *in, unsigned char *out )
 {
 	/* for convenience */
-	const int FILTER_WIDTH_SQUARED = FILTER_WIDTH * FILTER_WIDTH;
+	int x = blockIdx.x * blockDim.x + threadIdx.x;
+	int y = blockIdx.y * blockDim.y + threadIdx.y;
+	int index = IMAGE_SIZE*y + x;
 
-	/* get the thread local values for where we are */
-	int x_index, y_index, pixel_index;
-	set_indices ( x_index, y_index, pixel_index );
-
-	/* const those values for the compiler */
-	const int index = pixel_index;
-	printf ( "%d ", index );
-	/* calculate top left of median filter mask */
-	const int top_left = index - IMAGE_SIZE*(FILTER_WIDTH/2) - ( FILTER_WIDTH/2 );
-
-	/* allocate space for the neighborlist */
-	unsigned char * neighbors = ( unsigned char* )malloc ( sizeof ( unsigned char )*FILTER_WIDTH_SQUARED );
-
-	/* every pixel lies on one absolute edge 0, or 255, so real pixels are most likely to be the median */
-#pragma unroll
-	for ( int i = 0; i < FILTER_WIDTH_SQUARED; ++i )
-		neighbors[ i ] = ((i % 2) == 0) ? 255 : 0;
+	int top_left = index - IMAGE_SIZE*(filtersize/2) - filtersize / 2;
+	unsigned char * neighbors = ( unsigned char* )malloc ( sizeof ( unsigned char )*filtersize*filtersize );
+	/* hack to split the empty neighbors evenly */
+	for ( int i = 0; i < filtersize*filtersize; ++i )
+		neighbors[ i ] = i % 2 == 0 ? 255 : 0;
 
 	/* set neighbors */
-#pragma unroll
-	for ( int j = 0; j < FILTER_WIDTH_SQUARED; ++j )
+	for ( int i = 0; i < filtersize; i++ )
 	{
-		const register int x = top_left + ( j % FILTER_WIDTH ) + ( j / FILTER_WIDTH )*IMAGE_SIZE;
-		if ( in_bounds ( x ) )
-			neighbors[ j ] = in[ x ];
+		const int row_start = top_left + IMAGE_SIZE*i;
+		for ( int j = 0; j < filtersize; j++ )
+		{
+			if ( in_bounds ( row_start + j ) )
+				neighbors[ ( i + 1 )*( j + 1 ) - 1 ] = in[ row_start + j ];
+		}
 	}
 
 	/* bubble sort */
 	bool swap_happened = false;
 	do
 	{
-#pragma unroll
-		for ( int i = 1; i < FILTER_WIDTH_SQUARED; ++i )
-			if ( neighbors[ i ] < neighbors[ i - 1 ] )
+		for ( int i = 1; i < filtersize*filtersize; ++i )
+			if ( neighbors[ i ] > neighbors[ i - 1 ] )
 			{
 				int tmp = neighbors[ i ];
 				neighbors[ i ] = neighbors[ i + 1 ];
@@ -52,8 +43,8 @@ __global__ void median_kernel ( unsigned char *in, unsigned char *out )
 			}
 	} while ( swap_happened );
 
-	/* set pixel to be median */
-	out[ index ] = neighbors[ FILTER_WIDTH_SQUARED / 2 ];
+	/* set */
+	out[ index ] = neighbors[ filtersize*filtersize / 2 ];
 	free ( neighbors );
 }
 

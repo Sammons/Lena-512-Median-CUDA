@@ -18,18 +18,21 @@ float calculate_accuracy ( unsigned char*& gpu_computed, unsigned char*& origina
 	for ( int i = 0; i < total_pixel_count; ++i )
 	{
 		/* get top left */
-		int top_left = ( i - ( filtersize >> 1 )*IMAGE_SIZE - ( filtersize >> 1 ) );
+		int top_left = ( i - ( filtersize /2 )*IMAGE_SIZE - ( filtersize / 2 ) );
 		std::vector<int> neighbors = default_neighbors;
-		for ( int j = 0; j < filtersize*filtersize; ++j )
+		for ( int k = 0; k < filtersize; k++ )
 		{
-			const register int x = top_left + ( j % filtersize ) + ( j / filtersize )*IMAGE_SIZE;
-			if ( in_bounds_cpu ( x ) )
-				neighbors[ j ] = original[ x ];
+			const int row_start = top_left + IMAGE_SIZE*k;
+			for ( int j = 0; j < filtersize; j++ )
+			{
+				if ( in_bounds_cpu ( row_start + j ) )
+					neighbors[ ( k + 1 )*( j + 1 ) - 1 ] = original[ row_start + j ];
+			}
 		}
 		std::sort ( neighbors.begin (), neighbors.end () );
 		const int expected = neighbors[ ( filtersize*filtersize ) / 2 ];
 		const int provided = gpu_computed[ i ];
-		if ( expected == provided )
+		if ( abs(expected - provided) < 0.025 * 255 )
 			++correct;
 	}
 
