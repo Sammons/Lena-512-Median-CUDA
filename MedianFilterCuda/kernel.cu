@@ -1,30 +1,29 @@
 #include "common.cuh"
-#include "median.cuh"
+#include "sobel.cuh"
 #include "cpu_functions.cu"
-/* prototype for call below that wraps launching the median filter kernel */
-inline void median_filter ( const std::string in, const std::string out, const std::string size);
+/* prototype for call below that wraps launching the sobel filter kernel */
+inline void sobel_filter ( const std::string in, const std::string out);
 
 int main (int argc, char* argv[])
 {
-	if ( argc != 4 )
+	if ( argc != 3 )
 	{
-		std::cout << "Incorrect usage, execute with parameters: <filtersize [3,5,7,11,15]> <input 512x512 .pgm image path> <output path>" << std::endl;
+		std::cout << "Incorrect usage, execute with parameters: <input 512x512 .pgm image path> <output path>" << std::endl;
 		return 1;
 	}
-	std::string size = std::string ( argv[ 1 ] );
-	std::string input_file_path = std::string ( argv[ 2 ] );
-	std::string outpu_file_path = std::string ( argv[ 3 ] );
+
+	std::string input_file_path = std::string ( argv[ 1 ] );
+	std::string outpu_file_path = std::string ( argv[ 2 ] );
 	
-	/* perform median filter with GPU */
-	median_filter ( input_file_path, outpu_file_path, size );
+	/* perform sobel filter with GPU */
+	sobel_filter ( input_file_path, outpu_file_path );
 
     return 0;
 }
 
 /* wrap the kernel call here */
-/* note that the size is passed as a string, the median filter kernel is a template function
-and there is a string map that correlates an input to the correct template function to execute */
-void median_filter ( std::string inputfilename, std::string outputfilename, std::string size )
+/*and there is a string map that correlates an input to the correct template function to execute */
+void sobel_filter ( std::string inputfilename, std::string outputfilename )
 {
 	unsigned char * host_lena = NULL;
 	unsigned char * dev_input = 0;
@@ -53,7 +52,7 @@ void median_filter ( std::string inputfilename, std::string outputfilename, std:
 	dim3 numBlocks ( IMAGE_SIZE / threadsPerBlock.x, IMAGE_SIZE / threadsPerBlock.y );
 
 	/* Launch a kernel on the GPU with 32 threads for each block */
-	get_median_kernel ( size ) <<<numBlocks, threadsPerBlock >>>( dev_input, dev_output );
+	sobel_kernel <<<numBlocks, threadsPerBlock >>>( dev_input, dev_output );
 
 	/* finish up */
 	cudaError_t error = cudaDeviceSynchronize ();
@@ -66,9 +65,9 @@ void median_filter ( std::string inputfilename, std::string outputfilename, std:
 
 	auto time = get_time ( "gpu timer" );
 	std::cout << "Time: " << time << std::endl;
-
+/*
 	float accuracy = calculate_accuracy ( &out[0], host_lena, size );
-	std::cout << "Accuracy: " << accuracy*100 << "% of pixels were correct" << std::endl;
+	std::cout << "Accuracy: " << accuracy*100 << "% of pixels were correct" << std::endl;*/
 	/* save output file */
 	sdkSavePGM ( outputfilename.c_str (), out, width, height );
 
